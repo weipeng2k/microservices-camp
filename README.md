@@ -1,6 +1,6 @@
 # microservices-camp
 
-针对目前Java的微服务简要介绍
+针对目前Java的微服务简要介绍。
 
 主要内容是如何构建：
 
