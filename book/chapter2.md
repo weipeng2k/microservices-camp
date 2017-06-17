@@ -39,6 +39,6 @@ Spring Boot推出了一个叫做`actuator`的模块，它可以实现应用的�
 
 说了这么多，让我们看看怎么使用它。
 
-<script type="text/javascript" src="https://asciinema.org/a/6kauk8aosiy3g05yt9k6ivunj.js" id="asciicast-14" async></script>
+<script type="text/javascript" src="https://asciinema.org/a/6kauk8aosiy3g05yt9k6ivunj.js" id="asciicast-6kauk8aosiy3g05yt9k6ivunj" async></script>
 
 ##
