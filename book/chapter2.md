@@ -39,8 +39,6 @@ Spring Boot推出了一个叫做`actuator`的模块，它可以实现应用的�
 
 说了这么多，让我们看看怎么使用它。
 
-<script type="text/javascript" src="https://asciinema.org/a/6kauk8aosiy3g05yt9k6ivunj.js" id="asciicast-6kauk8aosiy3g05yt9k6ivunj" async></script>
-
 ## 开始使用
 
 我们接下来使用Spring Boot的命令行工具（CLI）来创建第一个Spring Boot程序（CLI底层使用了[Spring Initializer](http://start.spring.io)）。你也可以使用自己喜欢的方式，比如使用集成了Spring Initializer的IDE，或者直接访问[web](http://start.spring.io)来创建一个工程。
@@ -197,3 +195,168 @@ public class HolaRestControllerV2 {
 </center>
 
 我们现在通过更改外部配置文件来使应用适应部署的环境，比如：调用服务的url、数据库url和密码以及消息队列配置，这些都适合作为配置。但是也要把握度，不是所有的内容都适合放置在配置中，比如：应用在任何环境下都应该具备相同的超时、线程池、重试等配置。
+
+## 暴露应用的Metrics和信息
+
+一个Spring Boot应用搭建起来了，紧接着就是将其部署到生产环境，我们怎样监控它呢？当我们想知道它运行的怎么样，我们该怎么办呢？除非我们让应用向外暴露出Metrics，否则应用就会像黑盒子一样。Spring Boot专门提供了一个starter -- `actuator`来完成这个工作。
+
+让我们看看如何启用`actuator`，启用的过程非常简单。在`hola-springboot/pom.xml`中依赖：
+
+```xml
+<dependency>
+  <groupId>org.springframework.boot</groupId>
+  <artifactId>spring-boot-starter-actuator</artifactId>
+</dependency>
+```
+
+然后在`hola-springboot/src/main/resources/application.properties`中增加一个配置（安全原因）：
+
+```sh
+$ more src/main/resources/application.properties
+management.security.enabled=false
+```
+
+随后，结束当前应用，在`hola-springboot`下运行：`mvn clean package spring-boot:run`重新编译工程，启动项目。
+
+我们可以通过浏览器访问几次`http://localhost:8080/api/holaV1`以及`http://localhost:8080/api/holaV2`，然后访问一下：`http://localhost:8080/metrics`，可以看到如下内容。
+
+<center>
+<img src="https://github.com/weipeng2k/microservices-camp/raw/master/resource/chapter2-4.png" width="50%" height="50%" />
+</center>
+
+类似这样的URL还有许多：
+
+* http://localhost:8080/beans
+* http://localhost:8080/env
+* http://localhost:8080/health
+* http://localhost:8080/metrics
+* http://localhost:8080/trace
+* http://localhost:8080/mappings
+
+暴露出这些运行时信息，使得开发人员在忙于业务开发的同时，更轻松获取到系统信息。
+
+## 怎样在maven之外运行
+
+到现在为止，我们还是以开发者视角使用maven来构建这个简单的工程。如果我们需要将它部署到其他环境，比如：开发、测试或者生产环境，需要怎么做呢？
+
+幸运的是，使用Spring Boot，我们可以轻松的发布和构建，Spring Boot推荐单一、可执行的jar，而在这个jar中包括了所有的依赖，这些依赖的jar都会放置在应用的类路径下。在`hola-springboot`下，运行`mvn clean package`，然后可以通过`java -jar`来运行。
+
+```sh
+$ mvn clean package
+$ java -jar target/hola-springboot-1.0.jar
+```
+
+就是这样，我们可以启动这个应用，后续接下来介绍的`Dropwizard`和`WildFly Swarm`都使用类似的方式进行。
+
+## 调用其他服务
+
+在微服务环境下，每个服务都有提供功能的义务并服务好它的调用者。就像我们在第一章中谈的，因为网络的不确定性，构建分布式系统十分的困难，本章主要讨论一个服务怎样调用到后台的服务。
+
+> 在第五章中，将会讨论服务的柔性、适应性交互和调用
+
+接下来将扩展`hola-springboot`项目，完成服务的调用，但在此之前，我们先要搭建一个后台服务，完成类似下图的交互。
+
+<center>
+<img src="https://github.com/weipeng2k/microservices-camp/raw/master/resource/chapter2-5.png" width="50%" height="50%" />
+</center>
+
+> **后台服务的构建，将采用forge + WildFly的方式进行，比原文中写一个Servlet部署到Jetty显得更好** <br>关于forge的安装，在mac下：`brew install jboss-forge`
+
+通过以下方式，可以在`microservices-camp`下创建一个具备持久化能力的REST服务，它可以自由的部署到`WildFly`中。
+
+<script type="text/javascript" src="https://asciinema.org/a/6kauk8aosiy3g05yt9k6ivunj.js" id="asciicast-6kauk8aosiy3g05yt9k6ivunj" async></script>
+
+通过上述命令，我们可以构建出一个`hola-backend.war`的应用，下面我们将其部署到`WildFly`中。`WildFly`的使用可以通过下载到本地运行，但是由于涉及到两个进程的交互，本文采用`Docker`的方式进行部署，读者可以自行准备环境。
+
+> 笔者准备了`WildFly`镜像，可以简单的运行起来<br>执行：`sudo docker run --name wildfly -it -p 9990:9990 -p 8080:8080 weipeng2k/wildfly-admin`，可以启动一个`WildFly`，HTTP端口在8080，应用管理端口在9990<br>管理员账号笔者已经构建在镜像中：admin/Admin#hello1234
+
+登录到`WildFly`后台，通过管理界面，部署`hola-backend.war`。
+
+<center>
+<img src="https://github.com/weipeng2k/microservices-camp/raw/master/resource/chapter2-6.png" width="50%" height="50%" />
+</center>
+
+可以看到后台的更新日志，从中可以了解到应用部署正常。
+
+<center>
+<img src="https://github.com/weipeng2k/microservices-camp/raw/master/resource/chapter2-7.png" width="50%" height="50%" />
+</center>
+
+使用这种方式的好处在于开发阶段如果有新的包生成直接进行上传就好，如果想整体销毁，直接停止删除容器即可，不会弄坏`WildFly`。下面使用chrome插件`Postman`构建`Book`数据，然后测试是否可用。
+
+新增数据测试。
+
+<center>
+<img src="https://github.com/weipeng2k/microservices-camp/raw/master/resource/chapter2-8.png" width="50%" height="50%" />
+</center>
+
+查询数据测试。
+
+<center>
+<img src="https://github.com/weipeng2k/microservices-camp/raw/master/resource/chapter2-9.png" width="50%" height="50%" />
+</center>
+
+看来后台服务应用`hola-backend`工作正常，当然可以通过`WildFly`的管理界面查询运行时信息，这点和Spring Boot的actuator很像，但是产品化的体验做的更好些。
+
+接下来在`hola-springboot`项目中新建`BookRestController`，使用`RestTemplate`来完成后端服务的交互。
+
+```java
+@RestController
+@RequestMapping("/api")
+@ConfigurationProperties(prefix = "books")
+public class BookRestController {
+
+    private RestTemplate template = new RestTemplate();
+
+    private String backendHost;
+
+    private int backendPort;
+
+    @RequestMapping(value = "/books/{bookId}",
+            method = RequestMethod.GET, produces = "text/plain")
+    public String greeting(@PathVariable("bookId") Long bookId) {
+        String backendServiceUrl = String.format("http://%s:%d/hola-backend/rest/books/{bookId}", backendHost, backendPort);
+        Map object = template.getForObject(backendServiceUrl, Map.class, bookId);
+        return object.toString();
+    }
+
+    public String getBackendHost() {
+        return backendHost;
+    }
+
+    public void setBackendHost(String backendHost) {
+        this.backendHost = backendHost;
+    }
+
+    public int getBackendPort() {
+        return backendPort;
+    }
+
+    public void setBackendPort(int backendPort) {
+        this.backendPort = backendPort;
+    }
+}
+```
+
+可以看到`BookRestController`将后端的host与port放在了配置中，而前缀是`books`，那么也就需要在`application.properties`中增加这些配置。
+
+```sh
+$ more src/main/resources/application.properties
+books.backendHost=192.168.0.125
+books.backendPort=8080
+```
+
+接下来，打开浏览器访问：`http://localhost:8080/api/books/1`，它将访问`hola-springboot`，而`hola-springboot`将会调用`hola-backend`，最终由`hola-springboot`输出结果。
+
+<center>
+<img src="https://github.com/weipeng2k/microservices-camp/raw/master/resource/chapter2-10.png" width="50%" height="50%" />
+</center>
+
+## 小结
+
+通过本章的内容，我们学习了Spring Boot的基本知识，了解它与传统的`WAR`和`EAR`不同的部署方式，以及如何使用外部资源来完成配置，并通过actuator暴露了Metrics，使用`RestTemplate`调用了另一个服务。如果你想了解跟多内容，可以参考下面的链接。
+
+* [Spring Boot](http://projects.spring.io/spring-boot/)
+* [Spring Boot Reference Guide](http://docs.spring.io/spring-boot/docs/current/reference/htmlsingle/)
+* [Spring Boot in Action](https://www.manning.com/books/spring-boot-in-action)
+* [Spring Boot on GitHub](https://github.com/spring-projects/spring-boot)
