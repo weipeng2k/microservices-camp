@@ -1,0 +1,6 @@
+helloapp:
+  saying: ${HELLOAPP_SAYING:-Guten Tag aus}
+greeter:
+  saying: ${GREETER_SAYING:-Guten Tag Dropwizard}
+  host: ${GREETER_BACKEND_HOST:-localhost}
+  port: ${GREETER_BACKEND_PORT:-8080}

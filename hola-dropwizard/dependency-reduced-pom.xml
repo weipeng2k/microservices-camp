@@ -92,6 +92,7 @@
           <mainClass>com.murdock.examples.dropwizard.HolaDropwizardApplication</mainClass>
           <arguments>
             <argument>server</argument>
+            <argument>conf/application.yml</argument>
           </arguments>
         </configuration>
       </plugin>
