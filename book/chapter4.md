@@ -7,3 +7,5 @@
 <center>
 <img src="https://github.com/weipeng2k/microservices-camp/raw/master/resource/chapter4-1.png" width="70%" height="70%" />
 </center>
+
+应用服务器在一个实例中提供了管理、部署以及配置多个应用的唯一入口，一般情况下为了提高可用性，会在不同的节点上部署多个实例。当越来越多的应用部署到一个应用服务器实例上后，问题开始出现，一个进程，一个JVM，很容易出问题。

@@ -8,4 +8,8 @@
 * 适应性
 * 复杂性
 
-的系统，并且用它来应对日益复杂的市场挑战。
+的系统，并且用它来应对日益复杂的市场挑战。看看微服务如何解决这个难题：
+
+<center>
+<img src="https://github.com/weipeng2k/microservices-camp/raw/master/resource/chapter0-1.png" />
+</center>
