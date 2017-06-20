@@ -1,0 +1,9 @@
+# 使用WildFly Swarm构建微服务
+
+我们最后介绍一个新的微服务框架，它构建在支持分层且可靠的`JavaEE`技术栈上（使用JBoss WildFly 应用服务器），WildFly Swarm是一个完全兼容WildFly应用服务器，它基于可重用的组件，这里称为元件（fractions）来组成微服务应用。组装这些元件和你使用maven或者gradle去添加依赖一样简单，你只需要声明元件，WildFly Swarm将会帮助你完成后续的工作。
+
+应用服务器和`JavaEE`在企业级Java应用的领域耕耘了快20年了，WildFly（以前叫JBoss Application Server）作为一个开源的Java应用服务器在市场上出现，企业在`JavaEE`技术栈上的投入非常巨大（不论是开源还是专有的供应商），包括培训、工具开发、管理等方面。`JavaEE`通常都是能够帮助开发人员构建分层的应用，因为它提供了诸如：`servlets/JSP`、`transactions`、组件模型、消息以及持久化等技术。`JavaEE`应用在部署时，将会打包成为EARs（包括了WARs或者JARs以及配置），一旦你完成了打包，你就需要找到一个应用服务器，然后安装。你可以利用应用服务器的高阶特性，比如：动态部署或者重复部署（虽然这些在生产环境上用的比较少，但是在开发态比较有用），同时你的包也利用了应用服务器的特性，只会包含必要的jar包，变得非常轻，一般只会包含所需要的业务逻辑。虽然应用的包变小了，但是应用服务器却变得很臃肿，因为它不得不包含应用所有可能需要的依赖。应用服务器中的每个`JavaEE`组件都会极力优化自己的依赖，同时它们之间也会相互隔离。
+
+<center>
+<img src="https://github.com/weipeng2k/microservices-camp/raw/master/resource/chapter4-1.png" width="70%" height="70%" />
+</center>

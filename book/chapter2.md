@@ -269,7 +269,7 @@ $ java -jar target/hola-springboot-1.0.jar
 使用`forge`构建完成之后，可以将其导入到IDE中，如果观察`BookEndpoint`这个类型，你会发现涉及到`CRUD`以及分页查询等逻辑已经完全具备了。
 
 <center>
-<img src="https://github.com/weipeng2k/microservices-camp/raw/master/resource/chapter2-11.png" width="70%" height="70%" />
+<img src="https://github.com/weipeng2k/microservices-camp/raw/master/resource/chapter2-11.png" width="90%" height="90%" />
 </center>
 
 通过上述命令，我们可以构建出一个`hola-backend.war`的应用，下面我们将其部署到`WildFly`中。`WildFly`的使用可以通过下载到本地运行，但是由于涉及到两个进程的交互，本文采用`Docker`的方式进行部署，读者可以自行准备环境。
@@ -279,13 +279,13 @@ $ java -jar target/hola-springboot-1.0.jar
 登录到`WildFly`后台，通过管理界面，部署`hola-backend.war`。
 
 <center>
-<img src="https://github.com/weipeng2k/microservices-camp/raw/master/resource/chapter2-6.png" width="50%" height="50%" />
+<img src="https://github.com/weipeng2k/microservices-camp/raw/master/resource/chapter2-6.png" width="70%" height="70%" />
 </center>
 
 可以看到后台的更新日志，从中可以了解到应用部署正常。
 
 <center>
-<img src="https://github.com/weipeng2k/microservices-camp/raw/master/resource/chapter2-7.png" width="70%" height="70%" />
+<img src="https://github.com/weipeng2k/microservices-camp/raw/master/resource/chapter2-7.png" width="80%" height="80%" />
 </center>
 
 使用这种方式的好处在于开发阶段如果有新的包生成直接进行上传就好，如果想整体销毁，直接停止删除容器即可，不会弄坏`WildFly`。下面使用chrome插件`Postman`构建`Book`数据，然后测试是否可用。
