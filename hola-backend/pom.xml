@@ -7,6 +7,20 @@
   <packaging>war</packaging>
   <build>
     <finalName>hola-backend</finalName>
+
+    <plugins>
+      <plugin>
+        <groupId>org.wildfly.swarm</groupId>
+        <artifactId>wildfly-swarm-plugin</artifactId>
+        <executions>
+          <execution>
+            <goals>
+              <goal>package</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
   </build>
   <properties>
     <failOnMissingWebXml>false</failOnMissingWebXml>

@@ -269,7 +269,7 @@ $ java -jar target/hola-springboot-1.0.jar
 使用`forge`构建完成之后，可以将其导入到IDE中，如果观察`BookEndpoint`这个类型，你会发现涉及到`CRUD`以及分页查询等逻辑已经完全具备了。
 
 <center>
-<img src="https://github.com/weipeng2k/microservices-camp/raw/master/resource/chapter2-11.png" width="90%" height="90%" />
+<img src="https://github.com/weipeng2k/microservices-camp/raw/master/resource/chapter2-11.png" width="100%" height="100%" />
 </center>
 
 通过上述命令，我们可以构建出一个`hola-backend.war`的应用，下面我们将其部署到`WildFly`中。`WildFly`的使用可以通过下载到本地运行，但是由于涉及到两个进程的交互，本文采用`Docker`的方式进行部署，读者可以自行准备环境。
