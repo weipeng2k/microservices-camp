@@ -268,3 +268,86 @@ $ java -jar target/hola-wildflyswarm-swarm.jar
 <center>
 <img src="https://github.com/weipeng2k/microservices-camp/raw/master/resource/chapter4-6.png" width="50%" height="50%" />
 </center>
+
+## 暴露应用Metrics和信息
+
+暴露应用的Metrics十分简单，只需要添加一个依赖一个maven坐标即可，添加坐标：
+
+```xml
+<dependency>
+    <groupId>org.wildfly.swarm</groupId>
+    <artifactId>monitor</artifactId>
+</dependency>
+```
+
+它将启动WildFly管理以及监控功能，从监控的角度看，WildFly Swarm暴露了一些基本的Metrics：
+
+* /node<br>当前部署节点的信息
+* /heap<br>堆信息
+* /threads<br>Java的线程信息
+
+当然也可以自定义添加一些端点用于检查微服务是否运作正常，你可以检测集群中哪台机器上的微服务是否工作正常，如果想了解详细的信息可以查看[WildFly Swarm documentation](https://wildfly-swarm.gitbooks.io/wildfly-swarm-users-guide/content/advanced/monitoring.html)。
+
+## 调用其他服务
+
+在微服务环境下，服务之间是会进行相互调用的，如果我们想使用之前的服务，就需要使用JAX-RS客户端，就像之前在Spring Boot微服务下调用books接口一样。
+
+<center>
+<img src="https://github.com/weipeng2k/microservices-camp/raw/master/resource/chapter4-7.png" width="50%" height="50%" />
+</center>
+
+接下来创建一个类型`GreeterResource`，使用JAX-RS客户端访问`hola-backend`，由于使用了JAX-RS，所以与`hola-dropwizard`的代码有些类似。
+
+```java
+@Path("/api")
+public class GreeterResource {
+
+    @Inject
+    @ConfigProperty(name = "GREETING_BACKEND_SERVICE_HOST",
+            defaultValue = "localhost")
+    private String backendServiceHost;
+    @Inject
+    @ConfigProperty(name = "GREETING_BACKEND_SERVICE_PORT",
+            defaultValue = "8080")
+    private int backendServicePort;
+
+    @Path("/greeting/{bookId}")
+    @GET
+    public String greeting(@PathParam("bookId") Long bookId) {
+        String backendServiceUrl = String.format("http://%s:%d",
+                backendServiceHost, backendServicePort);
+        System.out.println("Sending to: " + backendServiceUrl);
+        Client client = ClientBuilder.newClient();
+        Map map = client.target(backendServiceUrl).path("hola-backend").path("rest").path("books").path(
+                bookId.toString()).request().accept("application/json").get(Map.class);
+
+        return map.toString();
+    }
+}
+```
+
+在`hola-wildflyswarm`目录下，执行`mvn clean package`，完成应用的打包。在运行应用前，需要指定`hola-backend`服务端的位置，我们可以通过环境变量指定。
+
+```sh
+$ export GREETING_BACKEND_SERVICE_HOST="11.239.175.192"
+$ java -jar target/hola-wildflyswarm-swarm.jar
+```
+
+打开浏览器访问：`http://localhost:8080/api/greeting/1`，可以看到如下展示。
+
+<center>
+<img src="https://github.com/weipeng2k/microservices-camp/raw/master/resource/chapter4-8.png" width="50%" height="50%" />
+</center>
+
+## 小结
+
+通过本章内容，介绍了WildFly Swarm的基本使用方式，以及同Dropwizard和Spring Boot的对比，了解到如何暴露REST端点、配置、Metrics以及调用外部服务。快速的介绍WildFly Swarm不能面面俱到，下面是深入了解它的一些资源。
+
+> 由于使用了jboss-module模块化系统启动应用，WildFly Swarm启动的速度慢于Spring Boot和Dropwizard，但是其隔离的体现，使得应用的jar包非常简单，旧有的`JavaEE`迁移会有优势，官方更新速度很快，但是小问题也很多
+
+* [WildFly Swarm](http://wildfly-swarm.io)
+* [WildFly Swarm documentation](http://wildfly-swarm.io/documentation)
+* [WildFly Swarm examples on GitHub](https://github.com/wildfly-swarm/wildfly-swarm-examples)
+* [WildFly Swarm Core examples on GitHub](https://github.com/wildfly-swarm/wildfly-swarm)
+* [WildFly Swarm blog](http://wildfly-swarm.io/posts/)
+* [WildFly Swarm Community](http://wildfly-swarm.io/community/)
