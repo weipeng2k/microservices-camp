@@ -197,6 +197,7 @@ public class HolaResource {
 本文编写的时候，WildFly Swarm还没有一种方式进行外部配置，也没有一套配置框架，例如：Apache Commons Configuration或者Apache DeltaSpike Configuration组件。如果想要使用WildFly Swarm自己提供的配置功能，可以关注[this JIRA thread](https://issues.jboss.org/browse/SWARM-1273?jql=project%20%3D%20SWARM%20AND%20component%20%3D%20config-api)。在本章中，将使用Apache DeltaSpike Configuration来完成配置。
 
 > 翻译本文时，WildFly Swarm配置已经可以使用，访问这里：[Swarm Config](https://reference.wildfly-swarm.io/v/2017.6.1/configuration.html)
+
 > Apache DeltaSpike Configuration是一个2014年的Duke选择奖获得者，也非常不错
 
 Apache DeltaSpike Configuration是一个CDI扩展的集合，用来简化诸如：配置、数据获取以及安全等方面，接下来就需要使用CDI扩展来将配置注入到代码中，而配置的来源能够是命令行、属性文件、JNDI或者环境变量。首先添加CDI的依赖。

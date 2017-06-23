@@ -293,13 +293,13 @@ $ java -jar target/hola-springboot-1.0.jar
 新增数据测试。
 
 <center>
-<img src="https://github.com/weipeng2k/microservices-camp/raw/master/resource/chapter2-8.png" width="50%" height="50%" />
+<img src="https://github.com/weipeng2k/microservices-camp/raw/master/resource/chapter2-8.png" width="70%" height="70%" />
 </center>
 
 查询数据测试。
 
 <center>
-<img src="https://github.com/weipeng2k/microservices-camp/raw/master/resource/chapter2-9.png" width="50%" height="50%" />
+<img src="https://github.com/weipeng2k/microservices-camp/raw/master/resource/chapter2-9.png" width="70%" height="70%" />
 </center>
 
 看来后台服务应用`hola-backend`工作正常，当然可以通过`WildFly`的管理界面查询运行时信息，这点和Spring Boot的actuator很像，但是产品化的体验做的更好些。
