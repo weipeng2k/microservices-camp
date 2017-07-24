@@ -29,3 +29,24 @@ Docker是近几年出现用于解决不可变递交的优雅解决方案，它�
 构建了镜像，但是我们怎样启动一个应用？怎样停止它？怎样做健康检查？怎样收集应用的日志、Metrics等信息，使用标准的API可以使我们自己构建工具来完成这些工作。出色的集群机制，例如服务发现、负载均衡、失败容错以及配置使得开发人员很容易获得这些特性。
 
 > Docker相关的技术可以关注 [The Docker Book](https://www.gitbook.com/book/weipeng2k/the-docker-book/details)
+
+## Kubernetes
+
+外界都知晓Google使用Linux containers技术来支撑其扩展性，事实上Google的所有应用都运行在Linux containers上，并且被他们的管理系统[Brog](http://research.google.com/pubs/pub43438.html)进行着管理。前Google工程师`Joe Beda`说，公司每周要启动超过20亿次的容器，Google甚至投入资源涉及到linux底层技术来支持其容器在生产环境的运用。在2006年，Google开始了一个名叫 **进程容器** 的项目，最终演变成为了`cgroups`，而它在2008被合并到了Linux核心，同年正式发布。Google在拥有极强的运维容器的背景下，其对构建容器平台的影响力就不言而喻了，事实上，一些流行的容器管理项目都受到了Google的影响。
+
+* Cloud Foundry<br>它的创立者`Derek Collison`和`Vadim Spivak`都在Google工作过，并且使用Borg系统很多年
+* Apache Mesos<br>它的创立者`Ben Hindman`在Google实习过，与Google的诸多工程师有过容器技术的交流（围绕容器集群、调度和管理等技术）
+* Kubernetes<br>开源的容器集群管理平台和社区，创建它的工程师，同时也在Google创建了Borg
+
+在Docker震惊技术届的2013年，Google决定是时候开源他们下一代的技术--Borg，而它被命名为Kubernetes。今天，Kubernetes是一个巨大、开放和快速成长的社区，来自Google、Red Hat、CoreOS以及其他的个体在为它做出贡献。Kubernetes为在可伸缩的Linux containers下运行微服务提供了非常多有价值的功能，Google将近20年的运维经验都浓缩到了Kubernetes，这对我们使用微服务部署产生了巨大的影响。大部分高流量的互联网企业在这个领域耕耘了很长时间（Netflix、Amazon等）尝试构建的伸缩技术，在Kubernetes中都已经默认进行了集成，在正式深入例子之前，我们先介绍一些Kubernetes的概念，接下来在后面的章节将会用它来挂历一个微服务集群。
+
+## Pods
+
+一个Pod是一个或者多个Docker容器的组合，一般情况下一个Pod对应一个Docker容器，应用部署在其中。
+
+Kubernetes进行编排、调度以及管理Pod，当我们谈到一个运行在Kubernetes中的应用时，指的是运行在Pod中的Docker容器。一个Pod有自己的IP地址，所有运行在这个Pod中的容器共享这个IP（这个不同于普通的Docker容器，普通的Docker容器每个实例都有一个IP），当一个卷挂载到Pod，这个卷也能够被Pod中的容器共同访问。
+
+
+
+sudo usermod -a -G lxd weipeng2k
+newgrp lxd
