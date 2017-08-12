@@ -33,6 +33,7 @@
         <fabric8.service.name>hola-springboot</fabric8.service.name>
         <fabric8.service.port>80</fabric8.service.port>
         <fabric8.service.type>LoadBalancer</fabric8.service.type>
+        <fabric8.namespace>default</fabric8.namespace>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <java.version>1.8</java.version>
     </properties>

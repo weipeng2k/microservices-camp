@@ -6,3 +6,4 @@
 * [使用Dropwizard构建微服务](book/chapter3.md)
 * [使用WildFly Swarm构建微服务](book/chapter4.md)
 * [使用Docker和Kubernetes构建可伸缩的微服务](book/chapter5.md)
+* [集群管理、失败转移和负载均衡的实践](book/chapter6.md)

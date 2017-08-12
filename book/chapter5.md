@@ -80,6 +80,8 @@
 
 > 笔者的环境是 ubuntu 16.04 / amd k8 4 core CPU / 16 gb mem
 
+> 需要提前安装VirtualBox5.1，自行到官网上进行安装，不要图简单使用ubuntu默认的，那个平常自己使没问题，但是MiniKube不行
+
 ### 安装MiniKube
 
 ```sh
