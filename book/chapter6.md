@@ -42,7 +42,7 @@ hola-springboot.iml  mvnw  mvnw.cmd  pom.xml  src  target
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <docker.assemblyDescriptorRef>artifact</docker.assemblyDescriptorRef>
     <docker.from>docker.io/fabric8/java-jboss-openjdk8-jdk:1.0.10</docker.from>
-    <docker.image>fabric8/${project.artifactId}:${project.version}</docker.image>
+    <docker.image>weipeng2k/${project.artifactId}:${project.version}</docker.image>
     <docker.port.container.http>8080</docker.port.container.http>
     <docker.port.container.jolokia>8778</docker.port.container.jolokia>
     <fabric8.iconRef>icons/spring-boot</fabric8.iconRef>
@@ -58,6 +58,8 @@ hola-springboot.iml  mvnw  mvnw.cmd  pom.xml  src  target
     <java.version>1.8</java.version>
 </properties>
 ```
+
+> 注意这里docker.image改为了$username，使用者需要结合自己的情况进行修改
 
 并且添加了两个maven插件：`docker-maven-plugin`和`fabric8-maven-plugin`。
 
