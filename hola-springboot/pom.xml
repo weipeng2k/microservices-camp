@@ -121,10 +121,10 @@
                 <version>3.1.11</version>
                 <executions>
                     <execution>
-                        <id>json</id>
+                        <id>build</id>
                         <phase>generate-resources</phase>
                         <goals>
-                            <goal>json</goal>
+                            <goal>build</goal>
                         </goals>
                     </execution>
                     <execution>
