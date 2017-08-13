@@ -173,15 +173,36 @@ $:~/Documents/workspace/microservices-camp/hola-springboot$ mvn -Pf8-build
 
 ## 部署到Kubernetes
 
-如果我们安装了Docker的客户端，我们可以在构建完成后查看是否生成了对应的镜像。
+如果我们安装了Docker的客户端，我们可以在构建完成后查看是否生成了对应的镜像，可以看到通过`mvn -Pf8-build`之后，在本地安装了镜像。
 
 ```sh
 $:~/Documents/workspace/microservices-camp/hola-springboot$ sudo docker images
 REPOSITORY                        TAG                 IMAGE ID            CREATED             SIZE
-fabric8/hola-springboot           1.0                 7405f14d812e        21 seconds ago      436MB
+weipeng2k/hola-springboot           1.0                 7405f14d812e        21 seconds ago      436MB
 fabric8/java-jboss-openjdk8-jdk   1.0.10              1a13e31efd4b        13 months ago       421MB
 ```
 
+如果环境配置正确，并且启动了CDK，就可以使用`mvn -Pf8-local-deploy`来部署到本地的Kubernetes上。Kubernetes暴露了一个REST接口，并允许外界操作集群，Kubernetes遵循最终状态一致的原则，使用者只需要描述部署的要求和模式，Kubernetes就会尽力将其完成。举个例子：如果我们需要启动一个运行了`hola-springboot`的Pod，我们可以通过HTTP请求，将一个JSON/YAML传递给Kubernetes，Kubernetes会理解请求，然后创建对应的Pod，在Pod中创建Docker容器来运行应用，并在集群中对Pod进行调度。一个Kubernetes的Pod是原子化的，能够在Kubernetes集群中进行调度，同时它是有至少一个Docker容器所组成。
+
+通过使用`fabric8-maven-plugin`可以将项目完成构建并通过Kubernetes的REST接口创建Pod，只需要运行`mvn -Pf8-local-deploy`，然后通过CDK的`oc get pod`检查是否部署成功。 **由于译者并没有使用CDK，所以采用的方式是通过`mvn -Df8-build`来构建镜像，然后用minikube将镜像在本地完成部署的方式来进行，下面介绍一下具体的操作方式。**
+
+
+$ minikube ssh
+$ docker pull weipeng2k/hola-springboot:1.0
+1.0: Pulling from weipeng2k/hola-springboot
+a3ed95caeb02: Pull complete
+da71393503ec: Pull complete
+eb78add5bf3f: Pull complete
+046239789b53: Pull complete
+364eb6df56ec: Downloading [====================>                              ] 28.33 MB/68.74 MB
+553371e68377: Download complete
+63abc7cc2643: Download complete
+92cddbb532d5: Download complete
+d07d5053fa71: Download complete
+a20e09c1ad23: Download complete
+f9958ce057fe: Download complete
+886c417e0275: Download complete
+c0327652d3b6: Waiting
 
 
 
