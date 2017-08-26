@@ -1,8 +1,23 @@
 {
-    "plugins": ["-lunr", "-search", "search-plus", "github"], 
+    "plugins": ["-lunr", "-search", "search-plus", "github", "donate@^1.0.2"],
     "pluginsConfig": {
         "github": {
             "url": "https://github.com/weipeng2k/microservices-camp"
+        },
+        "sharing": {
+            "weibo": true,
+            "facebook": true,
+            "twitter": true,
+            "google": false,
+            "instapaper": false,
+            "vk": false,
+            "all": ["facebook", "google", "twitter","weibo", "instapaper"]
+        },
+        "donate": {
+            "alipay": "https://github.com/weipeng2k/microservices-camp/raw/master/resource/alipay_qr.png",
+            "title": "",
+            "button": "赏",
+            "alipayText": "支付宝打赏"
         }
     }
 }
