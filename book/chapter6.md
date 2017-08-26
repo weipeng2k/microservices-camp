@@ -348,9 +348,11 @@ No resources found.
 
 Kubernetes也具备根据各种指标，诸如：CPU、内存使用率或者用户自定义触发器来进行 [自行伸缩](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/) 的能力，能控制复制体（Pod）的增加或者减少。自行伸缩已经超过了本书的范畴，但是它仍是我们需要关注的集群管理技术。
 
+> 一般一个Pod会占一个CPU，如果是4核，那么就可以运行4个，超过4个后，你会发现各个Pod在交替启动运行，本机使用的A8是4核处理器，在默认情况下无法保证4个以上的Pod都处于Running状态
+
+## 服务发现（Service discovery）
 
 
-> 一般一个Pod会占一个CPU，如果是4核，那么就可以运行4个，超过4个后，你会发现各个Pod在交替启动运行
 
 
 docker的url暴露，重启
