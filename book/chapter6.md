@@ -352,7 +352,32 @@ Kubernetes也具备根据各种指标，诸如：CPU、内存使用率或者用�
 
 ## 服务发现（Service discovery）
 
+我们需要理解Kubernetes中最后一个概念是 **Sevice** ， 一个Service是一组Pods之间间接关系的简单抽象，它是应用用来描述一组Pods的表现形式。我们在之前的例子中看到Kubernetes是如何管理Pods的创建和消亡，我们也了解到Kubernetes能够方便的进行一个服务的伸缩，在接下来的例子中，我们将尝试启动`hola-backend`服务，然后使用`hola-springboot`与`hola-backend`之间进行通信。
 
+> `hola-backend`服务之前作为服务提供方，提供了Book的创建和查询服务，**这里的backend比原书中的例子更贴近现实**
 
+接下来将`hola-backend`镜像化，然后分别在Docker和Kubernetes中尝试部署， **这部分内容在原书中没有涉及**。对于`hola-backend`的镜像构建，我们需要将WildFly构建在其中，所以先进入`hola-backend`工程目录，执行mvn构建，然后在target目录下建立Dockerfile并进行镜像构建。
+
+```sh
+microservices-camp/hola-backend$ mvn clean package
+microservices-camp/hola-backend$ cd target/
+weipeng2k@weipeng2k-workstation:~/Documents/workspace/microservices-camp/hola-backend/target$ ls
+classes  generated-sources  hola-backend  hola-backend-swarm.jar  hola-backend.war  hola-backend.war.original  maven-archiver  maven-status
+microservices-camp/hola-backend/target$ vi Dockerfile
+```
+
+Dockerfile的内容如下：
+
+```sh
+FROM jboss/wildfly
+MAINTAINER weipeng2k "weipeng2k@126.com"
+ADD hola-backend.war /opt/jboss/wildfly/standalone/deployments/
+```
+
+可以看到父镜像来自于`jboss/wildfly`，构建时将war包拷贝到jboss WildFly默认的部署目录，执行`sudo docker build -t="weipeng2k/hola-backend:1.0" .`进行镜像构建，随后在启动这个镜像时，将会完成`hola-backend`的部署。
+
+> 如果不想本地构建进项，可以执行`sudo docker pull weipeng2k/hola-backend:1.0`从docker hub上获取
+
+启动镜像，通过执行`sudo docker run --name hola-backend -itd -p 8080:8080 weipeng2k/hola-backend:1.0`（如果自己构建的镜像，注意镜像的名称），启动容器后将本机的8080端口与容器中的8080进行映射，可以使用Postman进行测试。
 
 docker的url暴露，重启
