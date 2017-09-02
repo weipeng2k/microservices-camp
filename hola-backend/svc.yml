@@ -15,7 +15,7 @@ spec:
   - port: 80
     protocol: "TCP"
     targetPort: 8080
-  selector:
+  selector: # Service使用该selector来对应到Pods
     project: "hola-backend"
     provider: "fabric8"
     group: "com.murdock.examples"

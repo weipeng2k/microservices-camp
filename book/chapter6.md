@@ -380,4 +380,105 @@ ADD hola-backend.war /opt/jboss/wildfly/standalone/deployments/
 
 启动镜像，通过执行`sudo docker run --name hola-backend -itd -p 8080:8080 weipeng2k/hola-backend:1.0`（如果自己构建的镜像，注意镜像的名称），启动容器后将本机的8080端口与容器中的8080进行映射，可以使用Postman进行测试。
 
+接下来需要创建Kubernetes对应的ReplicationController和Service，需要编写Kubernetes描述文件，先看一下ReplicationController描述文件。
+
+> rc.yml和svc.yml可以在`hola-backend`工程目录下找到
+
+```yml
+apiVersion: "v1" #指定api版本，此值必须在kubectl api-version中
+kind: "ReplicationController" #指定创建资源的角色/类型
+metadata: #资源的元数据/属性
+  labels:
+    project: "hola-backend"
+    provider: "fabric8"
+    version: "1.0"
+    group: "com.murdock.examples"
+  name: "hola-backend"
+spec:
+  replicas: 1 #副本数量
+  selector: #RC通过spec.selector来筛选要控制的Pod
+    project: "hola-backend"
+    provider: "fabric8"
+    version: "1.0"
+    group: "com.murdock.examples"
+  template: #这里写Pod的定义
+    metadata:
+      annotations: {}
+      labels:
+        project: "hola-backend"
+        provider: "fabric8"
+        version: "1.0"
+        group: "com.murdock.examples"
+    spec: #这里是资源内容
+      containers:
+      - args: []
+        command: []
+        env: #指定容器中的环境变量
+        - name: "KUBERNETES_NAMESPACE"
+          valueFrom:
+            fieldRef:
+              fieldPath: "metadata.namespace"
+        image: "weipeng2k/hola-backend:1.0"
+        name: "hola-backend"
+        ports:
+        - containerPort: 8080
+          name: "http"
+        readinessProbe: #pod内容器健康检查的设置
+          httpGet: #通过httpget检查健康，返回200-399之间，则认为容器正常
+            path: "/"
+            port: 8080
+          initialDelaySeconds: 5
+          timeoutSeconds: 30
+        securityContext: {}
+        volumeMounts: []
+      imagePullSecrets: []
+      nodeSelector: {}
+      volumes: []
+```
+
+在`rc.yml`中定义了Pods，以及服务对应的镜像，通过`kubectl create -f rc.yml`可以让Kubernetes创建对应的ReplicationController，然后按照replicas中对复制体的数量约定，开始创建一个Pod。
+
+> 启动的过程比较慢，原因在于下载weipeng2k/hola-backend:1.0这个镜像，后续读者可以使用aliyun等镜像，如果要确定当前Kubernetes的工作状态，可以使用`kubectl describe pods`来观察当前的部署情况
+
+> 可以通过`minikube ssh`登录，然后执行`docker pull weipeng2k/hola-backend:1.0`后，可以观察到下载进度，该过程比较缓慢
+
+当`hola-backend`的ReplicationController启动后，可以通过`kubectl get pods`检查一下当前Pod的状态。
+
+```sh
+$ kubectl get pods
+NAME                 READY     STATUS    RESTARTS   AGE
+hola-backend-t06sg   1/1       Running   1          2d
+$ kubectl get rc
+NAME           DESIRED   CURRENT   READY     AGE
+hola-backend   1         1         1         2d
+```
+
+可以看到我们检查了刚创建的ReplicationController和由ReplicationController创建出来的Pod，接着我们开始创建Service，通过`kubectl create -f svc.yml`可以让Kubernetes创建对应的服务。
+
+```yml
+apiVersion: "v1"
+kind: "Service"
+metadata:
+  annotations: {}
+  labels:
+    project: "hola-backend"
+    provider: "fabric8"
+    version: "1.0"
+    group: "com.murdock.examples"
+  name: "hola-backend"
+spec:
+  deprecatedPublicIPs: []
+  externalIPs: []
+  ports:
+  - port: 80
+    protocol: "TCP"
+    targetPort: 8080
+  selector: # Service使用该selector来对应到Pods
+    project: "hola-backend"
+    provider: "fabric8"
+    group: "com.murdock.examples"
+  type: "LoadBalancer"
+```
+
+
 docker的url暴露，重启

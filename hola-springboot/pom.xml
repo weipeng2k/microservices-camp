@@ -108,7 +108,7 @@
                                 </assembly>
                                 <env>
                                     <JAR>${project.artifactId}-${project.version}.war</JAR>
-                                    <JAVA_OPTIONS>-Djava.security.egd=/dev/./urandom --books.backendHost=hola-backend --books.backendPort=80</JAVA_OPTIONS>
+                                    <JAVA_OPTIONS>-Djava.security.egd=/dev/./urandom</JAVA_OPTIONS>
                                 </env>
                             </build>
                         </image>
