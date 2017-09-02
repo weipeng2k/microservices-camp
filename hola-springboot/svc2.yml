@@ -1,0 +1,22 @@
+apiVersion: "v1"
+kind: "Service"
+metadata:
+  annotations: {}
+  labels:
+    project: "hola-springboot"
+    provider: "fabric8"
+    version: "1.0"
+    group: "com.murdock.examples"
+  name: "hola-springboot"
+spec:
+  deprecatedPublicIPs: []
+  externalIPs: []
+  ports:
+  - port: 80
+    protocol: "TCP"
+    targetPort: 8080
+  selector:
+    project: "hola-springboot"
+    provider: "fabric8"
+    group: "com.murdock.examples"
+  type: "LoadBalancer"

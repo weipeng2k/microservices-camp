@@ -5,7 +5,7 @@
 
     <groupId>com.murdock.examples</groupId>
     <artifactId>hola-springboot</artifactId>
-    <version>1.0</version>
+    <version>1.1</version>
     <packaging>jar</packaging>
 
     <name>hola-springboot</name>
@@ -108,7 +108,7 @@
                                 </assembly>
                                 <env>
                                     <JAR>${project.artifactId}-${project.version}.war</JAR>
-                                    <JAVA_OPTIONS>-Djava.security.egd=/dev/./urandom</JAVA_OPTIONS>
+                                    <JAVA_OPTIONS>-Djava.security.egd=/dev/./urandom --books.backendHost=hola-backend --books.backendPort=80</JAVA_OPTIONS>
                                 </env>
                             </build>
                         </image>
