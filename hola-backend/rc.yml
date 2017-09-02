@@ -38,7 +38,7 @@ spec:
           name: "http"
         readinessProbe: #pod内容器健康检查的设置
           httpGet: #通过httpget检查健康，返回200-399之间，则认为容器正常
-            path: "/hola-backend"
+            path: "/"
             port: 8080
           initialDelaySeconds: 5
           timeoutSeconds: 30
