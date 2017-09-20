@@ -480,5 +480,128 @@ spec:
   type: "LoadBalancer"
 ```
 
+通过`kubectl get service`可以查看在Kubernetes中部署的服务。
 
-docker的url暴露，重启
+```sh
+$ kubectl get svc
+NAME           CLUSTER-IP   EXTERNAL-IP   PORT(S)        AGE
+hola-backend   10.0.0.131   <pending>     80:30699/TCP   1h
+kubernetes     10.0.0.1     <none>        443/TCP        33d
+```
+
+注意 **Service** 创建出来后，有两个有趣的属性需要我们关注一下。一个是 `CLUSTER-IP`，这个虚拟的IP被分配给了一个Service实例，分配之后不会变化，这是一个固定的IP，在Kubernetes集群中运行的实例都能够通过这个IP和后面的 Pods 进行通信。而 Service后面的Pods是被 **SELECTOR** 选择出来的。可以看到当前`svc.yml`中定义的`selector`对于属性的指定。Pods在Kubernetes中可以被标定上任意的属性，你可以使用（类似：version、component或者team等）各种KV表示。在这个例子中，一个名为`hola-backend`服务，它会选择标有`project=hola-backend and provider=fabric8`的Pods，这代表着只要能够通过该选择器选择到的Pods，都能够用这个服务的`CLUSTER-IP`所访问到，而这个过程不需要复杂的分布式注册中心（例如：Zookeeper、Consule或者Eureka）支持，这个机制是Kubernetes内置的特性，集群级别（Cluster-level）的 **DNS** 也被内置在Kubernetes中。使用DNS作为微服务的服务发现机制是非常有挑战和困难的，在Kubernetes中集群的DNS指向`CLUSTER-IP`，而这个`CLUSTER-IP`对于各个服务是固定不变的，这样就不会出现使用传统的DNS解决方案中面对的DNS缓存或者其他诡异的问题。
+
+> 原书中是`component=backend`，应该是错误，不应该是component而是project
+
+我们可以给`hola-springboot`添加一组环境变量，让其`books.backendHost`和`books.backendPort`能够指定到`hola-backend`服务上，这样我们就可以在Kubernetes中运行`hola-springboot`并使其调用后端的`hola-backend`服务，在`hola-springboot`中添加配置。
+
+```xml
+<fabric8.env.GREETING_BACKENDSERVICEHOST >hola-backend</fabric8.env.GREETING_BACKENDSERVICEHOST>
+<fabric8.env.GREETING_BACKENDSERVICEPORT>80</fabric8.env.GREETING_BACKENDSERVICEPORT>
+```
+
+Spring Boot会解析我们在应用中配置的`application.properties`，但是它会被系统环境变量所覆盖，通过执行`mvn fabric8:json`可以生成新的Kubernetes描述文件。**这里原书中的Spring Boot示例存在问题** ，因为它没有定义和环境变量之间的映射关系，这样做是无法工作的，因此译者采取的方式是修改`application.properties`中的内容，重新构建镜像（1.1版本），然后在Kubernetes中部署，把这个例子跑起来。
+
+在没有部署到容器之前，我们对于`hola-springboot`中`application.properties`的定义是基于ip的，因此我们需要将其修改为基于域名，如下所示：
+
+```sh
+helloapp.saying=Guten Tag aus
+management.security.enabled=false
+books.backendHost=hola-backend
+books.backendPort=80
+```
+
+> 其中`hola-backend`服务支持在Kubernetes中对`hola-backend`这个域名解析，同时将请求派发到后端的Pods上
+
+修改`pom.xml`，将版本号改为`1.1`，保证每次镜像的构建都是独立的。
+
+在`hola-springboot`工程目录下执行`mvn -Pf8-build`，构建镜像到本地，然后通过`docker push $image`将其推到docker hub，这样Kubernetes才能够下载对应的镜像。新的镜像是`weipeng2k/hola-springboot:1.1`，这样也需要新的`rc.yml`，我们只需要修改原来`spring-boot`中的镜像版本即可（将其从1.0改为1.1）。
+
+> 在`hola-springboot`工程根目录下，`rc2.yml`和`svc2.yml`对应的是修改后的Kubernetes配置
+
+运行`kubectl create -f rc2.yml`和`kubectl create -f svc2.yml`，创建了`hola-springboot`对应的ReplicationController和Service，通过`kubectl get pods`可以观察已经创建的Pods。
+
+```sh
+$ kubectl get pods
+NAME                    READY     STATUS    RESTARTS   AGE
+hola-backend-t06sg      1/1       Running   1          2d
+hola-springboot-mdx1v   1/1       Running   0          1m
+```
+
+现在我们想象有一种Debug技术，能够有端口转发的能力，它能够建立起`hola-springboot-mdx1v`和本机之间的管理，这样我们就可以验证服务是否正常工作，这个功能在Kubernetes中通过`kubectl port-forward`来完成。由于`kubectl port-forward`会启动一个进程来完成本机和Pods之间的通信，所以我们将其设定成为后台进程，防止它退出。
+
+```sh
+$ kubectl port-forward hola-springboot-mdx1v 9000:8080 &
+[1] 7478
+$ kubectl port-forward hola-backend-t06sg 9001:8080 &
+[2] 7490
+```
+
+我们建立两个`port-forward`，分别指向`hola-springboot`和`hola-backend`，端口分别是本机的`9000`和`9001`，现在我们尝试访问一下`hola-springboot`。
+
+```sh
+$ curl http://localhost:9000/api/holaV1
+Handling connection for 9000
+Hola Spring Boot @ 172.17.0.5
+```
+
+返回的`172.17.0.5`就是Kubernetes为当前Pod分配的IP，接着我们需要访问一下Book接口，在此之前我们先添加一本书。
+
+```sh
+$ curl -H "Content-Type: application/json" -X POST -d '{"name":"Java编程的艺术","authorName":"魏鹏","publishDate":"2015-07-01"}' http://localhost:9001/hola-backend/rest/books/
+Handling connection for 9001
+```
+
+在访问`hola-backend`添加了一个数据之后，我们访问`hola-springboot`。
+
+```sh
+$ curl http://localhost:9000/api/books/1
+Handling connection for 9000
+{id=1, version=0, name=Java编程的艺术, authorName=魏鹏, publishDate=2015-07-01}
+```
+
+我们可以看到`hola-backend`返回给了`hola-springboot`正确的查询数据，因此我们的服务被正确的发现了，而这仅仅是使用到了Kubernetes服务发现的一部分特性。需要特别指出的是，这个过程我们没有使用任何额外的客户端组件来完成服务的注册和发现，我们虽然使用了Java来完成这个场景的构建，但是Kubernetes集群的DNS能够提供技术无关的支持，一个基础通用的服务发现机制。
+
+## 容忍失败（Fault Tolerance）
+
+构建类似微服务架构这样的复杂分布式系统，需要在心中有一个重要的假设：没有什么不会坏的（things will fail）。我们能花大量的精力来防止失败，但是就算这样，我们也不能预防所有的案例，因此面对这个必然的假设唯一的解法就是：我们面向失败进行设计，换一句话说就是，如何做到在一个充满变数的不稳定环境中幸存。
+
+> figure out how to survive in an environment where there are failures
+
+## 集群自愈
+
+如果一个服务开始变得有问题，我们怎样发现它呢？理想情况下我们的集群管理系统能够探测到它，并且通过一切可能的方式通知到我们，这种方式是传统环境惯用的手段。当把环境切换到一定规模的微服务环境下，我们有一大堆类似的微服务应用，我们真的需要停下来逐个分析到底是哪里导致了一个服务的不正常吗？长时间运行的服务可能处于不健康的状态。一个简单的途径就是把我们的微服务设计成为一种能够在任意时刻被杀死，特别是能够当它们出现问题时被杀死的架构体系。
+
+Kubernetes提供一组开箱即用的健康探测仪（Probe），我们能用它们来实现集群对实例的管理，使之能够做到自愈。第一个需要介绍的是readiness探测仪，Kubernetes通过它来判断当前的Pod是否能够被服务发现或者挂载到负载均衡上，需要readiness探测仪的原因是应用在容器中启动之后，仍需要一段时间启动应用的进程，这时需要等待应用已经完全启动完成之后才能够让流量进入。
+
+如果我们在刚启动的阶段放入流量，该Pod并不一定在那一刻处于正常状态，用户就会获得失败的结果或者不一致的状态。使用readiness探测仪，我们能够让Kubernetes查询一个HTTP端点，当且仅当该端点返回200或者其他结果时才会放入流量。如果Kubernetes探测到一个Pod在一段时间内readiness探测仪一直返回失败，这个Pod将会被杀死并重启。
+
+另一个健康探测仪被称为liveness探测仪，它和readiness探测仪很像，它被检测的时间段是在Pod到达ready状态后，当时在流量放入前（可以理解为早于readiness探测仪）。如果liveness探测仪（可能也是一个简单的HTTP端点）返回了一个不健康的状态（比如：HTTP 500），Kubernetes就会自动的杀死该Pod并重启。
+
+当我们使用`jboss-forge`工具以及`fabric8-setup`命令进行工程创建时，一个readiness探测仪就被默认创建了，可以观察一下`hola-springboot`的`pom.xml`，如果没有创建，可以使用`fabric8-readiness-probe`或者`fabric8-liveness-probe`两个maven命令进行创建。
+
+```xml
+<fabric8.readinessProbe.httpGet.path>/health</fabric8.readinessProbe.httpGet.path>
+<fabric8.readinessProbe.httpGet.port>8080</fabric8.readinessProbe.httpGet.port>
+<fabric8.readinessProbe.initialDelaySeconds>5</fabric8.readinessProbe.initialDelaySeconds>
+<fabric8.readinessProbe.timeoutSeconds>30</fabric8.readinessProbe.timeoutSeconds>
+```
+
+可以看到在`pom.xml`中对于readiness探测仪的配置，而生成的Kubernetes描述文件中的内容如下：
+
+```yml
+readinessProbe: #pod内容器健康检查的设置
+  httpGet: #通过httpget检查健康，返回200-399之间，则认为容器正常
+    path: "/health"
+    port: 8080
+  initialDelaySeconds: 5
+  timeoutSeconds: 30
+```
+
+这意味着readiness探测仪在`hola-springboot`中已经进行了配置，而Kubernetes会周期性检查Pod的`/heath`端点。当我们给`hola-springboot`添加了actuator时，就默认添加了一个`/heath`端点，这点在Dropwizard和WildFly Swarm也可以按照一样模式处理！
+
+## 断路器（Circuit Breaker）
+
+作为服务提供者，你的职责是提供给消费者稳定的服务，根据《Java环境下的微服务》章节提到的承诺设计，服务提供者也会依赖其他的服务或者下游系统，但是这种依赖不能是强依赖。一个服务提供者对其消费者服务承诺有完全的责任，因为分布式系统中总会存在失败，而这些失败将会导致承诺无法被兑现。在我们之前的例子中，`hola-spring`会调用到`hola-backend`，如果`hola-backend`不可用，将会发生什么？在这个场景下我们如何能够信守服务承诺？
+
+我们需要处理这些分布式系统中常见的错误，一个服务可能会不可用，底层网络可能会间歇性的不稳定，后端服务可能因为负载升高而导致它的响应变慢，一个后端服务的bug可能会造成服务调用时收到异常。如果我们不显式的处理这些场景，我们就会面临自己提供的服务降级的风险，可能会使线程处于阻塞状态，不仅如此可能会造成获取的资源（如：数据库锁或者其他资源）没有被释放，进而导致整个分布式系统出现雪崩。为了解决这个问题，我们将使用`NetflixOSS`工具栈下的`Hystrix`。

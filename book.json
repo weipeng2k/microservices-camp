@@ -1,5 +1,5 @@
 {
-    "plugins": ["-lunr", "-search", "search-plus", "github", "donate@^1.0.2"],
+    "plugins": ["-lunr", "-search", "search-plus", "github", "donate@^1.0.2", "word-count"],
     "pluginsConfig": {
         "github": {
             "url": "https://github.com/weipeng2k/microservices-camp"
