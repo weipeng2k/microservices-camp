@@ -93,6 +93,7 @@
         <fabric8.service.type>LoadBalancer</fabric8.service.type>
         <fabric8.env.GREETING_BACKEND_SERVICE_HOST>hola-backend</fabric8.env.GREETING_BACKEND_SERVICE_HOST>
         <fabric8.env.GREETING_BACKEND_SERVICE_PORT>80</fabric8.env.GREETING_BACKEND_SERVICE_PORT>
+        <fabric8.env.AB_OFF>true</fabric8.env.AB_OFF>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
