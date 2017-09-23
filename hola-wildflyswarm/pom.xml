@@ -20,6 +20,11 @@
                         </goals>
                     </execution>
                 </executions>
+                <configuration>
+                    <properties>
+                        <java.net.preferIPv4Stack>true</java.net.preferIPv4Stack>
+                    </properties>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>io.fabric8</groupId>
