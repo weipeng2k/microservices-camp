@@ -48,6 +48,8 @@
                                 <env>
                                     <JAVA_APP_JAR>${project.build.finalName}-swarm.jar</JAVA_APP_JAR>
                                     <AB_JOLOKIA_OFF>true</AB_JOLOKIA_OFF>
+                                    <AB_OFF>true</AB_OFF>
+                                    <JOLOKIA_OFF>true</JOLOKIA_OFF>
                                 </env>
                             </build>
                         </image>
