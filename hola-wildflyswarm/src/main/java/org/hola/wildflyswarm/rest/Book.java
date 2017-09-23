@@ -8,6 +8,7 @@ import java.util.Date;
 public class Book {
     private Long id;
     private String name;
+    private int version;
     private String authorName;
     private Date publishDate;
 
@@ -43,11 +44,20 @@ public class Book {
         this.publishDate = publishDate;
     }
 
+    public int getVersion() {
+        return version;
+    }
+
+    public void setVersion(int version) {
+        this.version = version;
+    }
+
     @Override
     public String toString() {
         return "Book{" +
                 "id=" + id +
                 ", name='" + name + '\'' +
+                ", version=" + version +
                 ", authorName='" + authorName + '\'' +
                 ", publishDate=" + publishDate +
                 '}';
