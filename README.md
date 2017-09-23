@@ -10,7 +10,7 @@
 
 的系统，并且用它来应对日益复杂的市场挑战。看看微服务如何解决这个难题：
 
-> 原书使用了Red Hat Container Development Kit（CDK）来完成对k8s的使用，译者认为不应该依赖特定提供商的工具，因此后续章节的例子均使用k8s原生的工具完成，可以保证在ubuntu自有环境上的正常使用。
+> 原书使用了Red Hat Container Development Kit（CDK）来完成对k8s的使用，译者认为不应该依赖特定提供商的工具，因此后续章节的例子均使用k8s原生的工具完成，可以保证在ubuntu自有环境上的正常使用
 
 > k8s使用的是本机部署的minikube，因此在第五章专门增加了minikube的安装方式
 
