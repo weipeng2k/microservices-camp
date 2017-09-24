@@ -614,3 +614,132 @@ readinessProbe: #pod内容器健康检查的设置
 * 优雅降级
 * 实时的监控失败状态
 * 支持处理失败时的业务逻辑
+
+使用`Hystrix`的方式，就是使用命令模式，将调用外部依赖的逻辑放置在`HystrixCommand`的实现中，也就是将调用外部可能失败的代码放置在`run()`方法中。为了帮助我们开始了解这个过程，我们从`hola-wildflyswarm`项目入手，我们使用`Netflix`的最佳实践，显式的进行调用，为什么这样做？因为调试分布式系统是一件非常困难的工作，调用栈分布在不同的机器上，而越少的干预使用者，使调试过程变得简单就显得很重要了。
+
+> 虽然`Hystrix`提供了注解的使用方式，但是我们仍然使用最基本的方式去用
+
+在`hola-wildflyswarm`项目中，增加依赖：
+
+```xml
+<dependency>
+    <groupId>com.netflix.hystrix</groupId>
+    <artifactId>hystrix-core</artifactId>
+    <version>${hystrix.version}</version>
+</dependency>
+```
+
+但实际上只需要增加`<hystrix.version>1.5.12</hystrix.version>`到pom属性即可。 ** 原书中的示例在新的docker ce下理论已经无法跑起来，支离破碎的实例代码让读者无法串联起整个过程，因此译者认为首先需要将`hola-wildflyswarm`跑起来，然后添加断路器的相关功能。 **
+
+> 这个过程中，译者会介绍一下如何将镜像推送到aliyun，避免中美交互的网速问题。
+
+首先在`hola-wildflyswarm`工程下，启动`jboss-forge`，然后运行`fabric8-setup`。然后修改POM，以下针对关键点做说明，具体的内容可以GitHub上对应的pom。对`docker-maven-plugin`需要增加一些配置，用来禁用fabric8提供的jolokia，这个组件目前和`WildFly`有兼容性问题。
+
+```xml
+<plugin>
+    <groupId>io.fabric8</groupId>
+    <artifactId>docker-maven-plugin</artifactId>
+    <version>0.14.2</version>
+    <configuration>
+        <images>
+            <image>
+                <name>${docker.image}</name>
+                <build>
+                    <from>${docker.from}</from>
+                    <assembly>
+                        <basedir>/app</basedir>
+                        <inline>
+                            <id>${project.artifactId}</id>
+                            <files>
+                                <file>
+                                    <source>
+                                        ${project.build.directory}/${project.build.finalName}-swarm.jar
+                                    </source>
+                                    <outputDirectory>/</outputDirectory>
+                                </file>
+                            </files>
+                        </inline>
+                    </assembly>
+                    <env>
+                        <JAVA_APP_JAR>${project.build.finalName}-swarm.jar</JAVA_APP_JAR>
+                        <AB_JOLOKIA_OFF>true</AB_JOLOKIA_OFF>
+                        <AB_OFF>true</AB_OFF>
+                        <JOLOKIA_OFF>true</JOLOKIA_OFF>
+                    </env>
+                </build>
+            </image>
+        </images>
+    </configuration>
+</plugin>
+```
+
+maven配置属性需要调整，镜像from的位置需要调整，不能使用fabric8的tomcat，否则跑不起来，因为`hola-wildflyswarm`到底还是一个基于JavaEE的项目。Kubernetes的readiness地址需要调整一下，这里放置了一个rest接口。
+
+```xml
+<properties>
+    <failOnMissingWebXml>false</failOnMissingWebXml>
+    <docker.from>docker.io/fabric8/java-jboss-openjdk8-jdk:1.0.10</docker.from>
+    <docker.image>weipeng2k/${project.artifactId}:${project.version}</docker.image>
+    <fabric8.readinessProbe.httpGet.path>/api/holaV1</fabric8.readinessProbe.httpGet.path>
+    <fabric8.readinessProbe.httpGet.port>8080</fabric8.readinessProbe.httpGet.port>
+    <fabric8.readinessProbe.initialDelaySeconds>5</fabric8.readinessProbe.initialDelaySeconds>
+    <fabric8.readinessProbe.timeoutSeconds>30</fabric8.readinessProbe.timeoutSeconds>
+    <fabric8.env.GREETING_BACKEND_SERVICE_HOST>hola-backend</fabric8.env.GREETING_BACKEND_SERVICE_HOST>
+    <fabric8.env.GREETING_BACKEND_SERVICE_PORT>80</fabric8.env.GREETING_BACKEND_SERVICE_PORT>
+    <fabric8.env.AB_JOLOKIA_OFF>true</fabric8.env.AB_JOLOKIA_OFF>
+    <version.wildfly-swarm>2017.6.1</version.wildfly-swarm>
+    <hystrix.version>1.5.12</hystrix.version>
+</properties>
+```
+
+可以看到`hola-wildflyswarm`通过`fabric8.env`的配置形式，将系统变量进行了设置，使得容器能够在运行时感知到底层`hola-backend`提供的服务所在域名和端口，而这个`hola-backend`域名对应的真实地址，只有在Kubernetes环境中，由Kubernetes提供给所有的Pod。
+
+在`hola-wildflyswarm`下，可以看到存在`rc.yml`和`svc.yml`，同时我们在项目中进行REST调用后，不再使用Map来作为返回值，而是定义了`Book`这个类型用来承接返回，接下来我们将它们运行起来。
+
+```sh
+$ kubectl create -f rc.yml
+replicationcontroller "hola-wildflyswarm" created
+$ kubectl create -f svc.yml
+service "hola-wildflyswarm" created
+```
+
+运行`kubectl port-forward hola-backend-t06sg 9001:8080 &`，我们做一下数据的添加，将`hola-backend`的一个Pod端口映射到本机的`9001`上。
+
+```sh
+$ curl -H "Content-Type: application/json" -X POST -d '{"name":"Java编程的艺术","authorName":"魏鹏","publishDate":"2015-07-01"}' http://localhost:9001/hola-backend/rest/books/
+Handling connection for 9001
+```
+
+添加数据之后，我们通过`kubectl get pods`查询一下创建的Pod。
+
+```sh
+$ kubectl get pods
+NAME                      READY     STATUS    RESTARTS   AGE
+hola-backend-t06sg        1/1       Running   4          24d
+hola-springboot-mdx1v     1/1       Running   3          21d
+hola-wildflyswarm-9gv39   1/1       Running   0          1h
+```
+
+接着创建`hola-wildflyswarm-9gv39`的代理，`kubectl port-forward hola-wildflyswarm-9gv39 9002:8080 &`，然后再请求一下接口，看是否能够获得数据。
+
+```sh
+$ curl http://localhost:9002/api/books/1
+Handling connection for 9002
+Book{id=2, name='Java编程的艺术', version=0, authorName='魏鹏', publishDate=Wed Jul 01 00:00:00 UTC 2015}
+```
+
+从调用接口的返回可以看到，`hola-wildflyswarm`通过REST调用到了`hola-backend`，但是如果`hola-backend`应用出现问题，我们再请求`hola-wildflyswarm`会发生什么呢？
+
+```sh
+$ kubectl scale rc hola-backend --replicas=0
+replicationcontroller "hola-backend" scaled
+$ kubectl get pods
+NAME                      READY     STATUS    RESTARTS   AGE
+hola-springboot-mdx1v     1/1       Running   3          21d
+hola-wildflyswarm-9gv39   1/1       Running   0          1h
+$ curl http://localhost:9002/api/books/1
+Handling connection for 9002
+^C
+```
+
+我们先将`hola-backend`缩容到0个，然后再请求原有的`hola-wildflyswarm`接口，结果卡在那里了，也就是`hola-wildflyswarm`提供的服务无法兑现承诺。
