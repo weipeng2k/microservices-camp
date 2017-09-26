@@ -742,4 +742,112 @@ Handling connection for 9002
 ^C
 ```
 
-我们先将`hola-backend`缩容到0个，然后再请求原有的`hola-wildflyswarm`接口，结果卡在那里了，也就是`hola-wildflyswarm`提供的服务无法兑现承诺。
+我们先将`hola-backend`缩容到0个，然后再请求原有的`hola-wildflyswarm`接口，结果卡在那里了，也就是`hola-wildflyswarm`提供的服务无法兑现承诺，我们需要使用`Hystrix`改造后，就可以在`hola-backend`后端服务出现问题时，依旧在一定程度上兑现服务承诺。
+
+```java
+public class BookCommand extends HystrixCommand<Book> {
+
+    private final String host;
+    private final int port;
+    private final Long bookId;
+
+    public BookCommand(String host, int port, Long bookId) {
+        super(Setter.withGroupKey(
+                HystrixCommandGroupKey.Factory
+                        .asKey("wildflyswarm.backend"))
+                .andCommandPropertiesDefaults(HystrixCommandProperties.Setter()
+                        .withCircuitBreakerEnabled(true)
+                        .withCircuitBreakerRequestVolumeThreshold(5)
+                        .withMetricsRollingStatisticalWindowInMilliseconds(5000)
+                ));
+
+        this.host = host;
+        this.port = port;
+        this.bookId = bookId;
+    }
+
+    @Override
+    protected Book run() throws Exception {
+        String backendServiceUrl = String.format("http://%s:%d",
+                host, port);
+        System.out.println("Sending to: " + backendServiceUrl);
+        Client client = ClientBuilder.newClient();
+        Book book = client.target(backendServiceUrl).path("hola-backend").path("rest").path("books").path(
+                bookId.toString()).request().accept("application/json").get(Book.class);
+
+        return book;
+    }
+
+    @Override
+    protected Book getFallback() {
+        Book book = new Book();
+        book.setAuthorName("老中医");
+        book.setId(999L);
+        book.setPublishDate(new Date());
+        book.setVersion(1);
+        book.setName("颈椎病康复指南");
+
+        return book;
+    }
+}
+```
+
+我们可以看到，通过继承`HystrixCommand`然后返回`Book`，首先看构造函数，它进行了`Hystrix`配置。最关键的点是将有可能失败的代码（远程调用逻辑）放置在`run()`方法中，在`run()`方法中对远程`hola-backend`服务进行调用。
+
+如果后端服务在一段时间内不可用，断路器就会激活，请求将会被拦截，以快速失败的形式体现出来，断路器行为将会在后端服务恢复后关闭，这样就相当于在后端服务出现问题时，进行了服务降级。在`BookCommand`示例中，可以看到对`hola-backend`后端请求出现5次问题后将会激活断路器，同时配置了5秒的窗口，用于检查后端服务是否恢复。
+
+> 可以通过搜索`Hystrix`文档来了解更多的配置项和相关功能，这些配置功能可以通过外部配置或者运行时配置加以运用
+
+如果后端服务变得不可用或者延迟较高，`Hystrix`的断路器将会介入，随着断路器的介入，我们`hola-wildflyswarm`服务的承诺如何兑现？答案是和场景相关。举个例子：如果我们的服务是给用户一个专属的书籍推荐列表，我们会调用后台的图书推荐服务，如果图书推荐服务变得很慢或者不可用时该怎么办？我们将会降级图书推荐服务，可能返回一个通用的推荐图书列表。为了达到这个效果，我们需要使用`Hystrix`的`fallback`方法。在`BookCommand`示例中，通过实现`getFallback()`方法，在这个方法中，我们返回了一本默认的书。
+
+接下来看一下使用了`BookCommand`的新接口：
+
+```java
+@Path("/api")
+public class BookResource2 {
+
+    @Inject
+    @ConfigProperty(name = "GREETING_BACKEND_SERVICE_HOST",
+            defaultValue = "localhost")
+    private String backendServiceHost;
+    @Inject
+    @ConfigProperty(name = "GREETING_BACKEND_SERVICE_PORT",
+            defaultValue = "8080")
+    private int backendServicePort;
+
+    @Path("/books2/{bookId}")
+    @GET
+    public String greeting(@PathParam("bookId") Long bookId) {
+        return new BookCommand(backendServiceHost, backendServicePort, bookId).execute().toString();
+    }
+}
+```
+
+我们先创建一个脚本，`interval.sh`，它用来每隔1秒钟调用一下`hola-wildflyswarm`的服务。
+
+```sh
+#!/bin/sh
+for i in $(seq 1000); do
+  curl http://localhost:9002/api/books2/1
+  echo ""
+  sleep 1
+done;
+```
+
+原有的`hola-wildflyswarm`服务不支持断路器，我们将其停止，可以通过`kubectl delete all -l project=hola-wildflyswarm`，然后使用`svc2.yml`和`rc2.yml`创建新的`hola-wildflyswarm`。我们先将`interval`脚本运行起来，这时`hola-backend`服务并没有启动，然后在一段时间后，将`hola-backend`服务通过`kubectl scale rc hola-wildflyswarm --replicas=1`扩容1个实例，然后可以看到，对`hola-wildflyswarm`服务的请求返回出现了变化。
+
+> 需要往新生成的`hola-backend`中添加Book数据，因为重启后数据丢失
+
+```sh
+Book{id=999, name='颈椎病康复指南', version=1, authorName='老中医', publishDate=Sun Sep 24 11:18:45 UTC 2017}
+Book{id=999, name='颈椎病康复指南', version=1, authorName='老中医', publishDate=Sun Sep 24 11:18:46 UTC 2017}
+Book{id=999, name='颈椎病康复指南', version=1, authorName='老中医', publishDate=Sun Sep 24 11:18:47 UTC 2017}
+Book{id=1, name='Java编程的艺术', version=0, authorName='魏鹏', publishDate=Wed Jul 01 00:00:00 UTC 2015}
+Book{id=1, name='Java编程的艺术', version=0, authorName='魏鹏', publishDate=Wed Jul 01 00:00:00 UTC 2015}
+```
+
+当后端服务恢复时，调用链路转而正常。这个例子比原书中显得更加通用，但是应用对于fallback或者优雅降级并不是一直优于无法兑现服务承诺，原因是这些选择是基于场景的。例如，如果设计一个资金转换服务，如果后端服务挂掉了，你可能更希望拒绝转账，而不是fallback，你可能更希望的解决方式是当后端服务恢复后，转账才能继续。因此，这里不存在 **银弹** ，但是理解fallback和降级却可以这样来：是否使用fallback取决于用户体验，是否选择优雅降级取决于业务场景。
+
+## 隔水舱（Bulkhead）
+
+`Hystrix`提供了
