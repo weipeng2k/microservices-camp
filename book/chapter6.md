@@ -850,4 +850,31 @@ Book{id=1, name='Java编程的艺术', version=0, authorName='魏鹏', publishDa
 
 ## 隔水舱（Bulkhead）
 
-`Hystrix`提供了
+`Hystrix`提供了许多开箱即可用的功能
+
+
+```sh
+#!/bin/sh
+sleep 5
+for i in $(seq 20); do
+  curl http://localhost:9002/api/books3/1
+  echo ""
+done;
+```
+
+```sh
+$ ./quick.sh
+Book{id=1, name='Java编程的艺术', version=0, authorName='魏鹏', publishDate=Wed Jul 01 00:00:00 UTC 2015}
+Book{id=1, name='Java编程的艺术', version=0, authorName='魏鹏', publishDate=Wed Jul 01 00:00:00 UTC 2015}
+Book{id=1, name='Java编程的艺术', version=0, authorName='魏鹏', publishDate=Wed Jul 01 00:00:00 UTC 2015}
+Book{id=1, name='Java编程的艺术', version=0, authorName='魏鹏', publishDate=Wed Jul 01 00:00:00 UTC 2015}
+Book{id=1, name='Java编程的艺术', version=0, authorName='魏鹏', publishDate=Wed Jul 01 00:00:00 UTC 2015}
+Book{id=1, name='Java编程的艺术', version=0, authorName='魏鹏', publishDate=Wed Jul 01 00:00:00 UTC 2015}
+Book{id=1, name='Java编程的艺术', version=0, authorName='魏鹏', publishDate=Wed Jul 01 00:00:00 UTC 2015}
+Book{id=1, name='Java编程的艺术', version=0, authorName='魏鹏', publishDate=Wed Jul 01 00:00:00 UTC 2015}
+Book{id=999, name='颈椎病康复指南', version=1, authorName='老中医', publishDate=Tue Sep 26 14:34:44 UTC 2017}
+Book{id=1, name='Java编程的艺术', version=0, authorName='魏鹏', publishDate=Wed Jul 01 00:00:00 UTC 2015}
+Book{id=1, name='Java编程的艺术', version=0, authorName='魏鹏', publishDate=Wed Jul 01 00:00:00 UTC 2015}
+Book{id=1, name='Java编程的艺术', version=0, authorName='魏鹏', publishDate=Wed Jul 01 00:00:00 UTC 2015}
+Book{id=1, name='Java编程的艺术', version=0, authorName='魏鹏', publishDate=Wed Jul 01 00:00:00 UTC 2015}
+```
