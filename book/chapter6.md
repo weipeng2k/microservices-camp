@@ -1033,4 +1033,111 @@ Book{id=1, name='颈椎病康复指南', version=0, authorName='老中医', publ
 
 ## 我们需要客户端负载均衡吗？
 
-&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;&nbsp;&nbsp;&nbsp;如果你需要更加精细化的负载均衡控制，那么也可以在Kubernetes中使用客户端负载均衡，使用特定的算法来决定调用到服务背后的哪个Pod。你升职可以实现类似权重的负载均衡，跳过哪些看起来失败率较高的Pod，而这种客户端负载均衡技术往往都是语言相关的。在大多数情况下，还是推荐使用语言或者技术无关的方案，因为Kubernetes内置的服务端负载均衡技术已经足够了，但是如果你想使用客户端负载均衡，那么你可以尝试类似：`SmartStack`、`bakerstreet.io`或者`NetflixOSS Ribbon`。
+
+&nbsp;&nbsp;&nbsp;&nbsp;在接下来的例子中，我们使用`NetflixOSS Ribbon`来做客户端负载均衡，有许多不同的方式使用`Ribbon`，并且可以选择一些不同的注册和发现客户端进行适配，比如：`Eureka`和`Consul`，但是当运行在Kubernetes中时，我们可以选择使用Kubernetes内置的API来完成服务发现。要启动这个特性，需要使用`Kubeflix`中的`ribbon-discovery`，我们首先需要新增依赖：
+
+```xml
+<dependency>
+    <groupId>org.wildfly.swarm</groupId>
+    <artifactId>ribbon</artifactId>
+</dependency>
+<dependency>
+    <groupId>io.fabric8.kubeflix</groupId>
+    <artifactId>ribbon-discovery</artifactId>
+    <version>${kubeflix.version}</version>
+</dependency>
+```
+
+> 其中`${kubeflix.version}`为`1.0.15`
+
+&nbsp;&nbsp;&nbsp;&nbsp;在`Spring Boot`应用中，我们可以使用`Spring Cloud`，它也提供了对`Ribbon`的整合，我们可以这样依赖：
+
+```xml
+<dependency>
+    <groupId>com.netflix.ribbon</groupId>
+    <artifactId>ribbon-core</artifactId>
+    <version>${ribbon.version}</version>
+</dependency>
+<dependency>
+    <groupId>com.netflix.ribbon</groupId>
+    <artifactId>ribbon-loadbalancer</artifactId>
+    <version>${ribbon.version}</version>
+</dependency>
+```
+
+&nbsp;&nbsp;&nbsp;&nbsp;在`pom`中，需要增加环境变量配置。
+
+```sh
+<fabric8.env.USE_KUBERNETES_DISCOVERY>true</fabric8.env.USE_KUBERNETES_DISCOVERY>
+```
+
+&nbsp;&nbsp;&nbsp;&nbsp;接着看如何将`Ribbon`整合入我们的应用，我们新建了一个rest接口。
+
+```java
+@Path("/api")
+public class BookResource4 {
+
+    @Inject
+    @ConfigProperty(name = "GREETING_BACKEND_SERVICE_HOST",
+            defaultValue = "localhost")
+    private String backendServiceHost;
+    @Inject
+    @ConfigProperty(name = "GREETING_BACKEND_SERVICE_PORT",
+            defaultValue = "8080")
+    private int backendServicePort;
+
+    private String useKubernetesDiscovery;
+
+    private ILoadBalancer loadBalancer;
+    private IClientConfig config;
+
+    public BookResource4() {
+        this.config = new DefaultClientConfigImpl();
+        this.config.loadProperties("hola-backend");
+
+        this.useKubernetesDiscovery = System.getenv("USE_KUBERNETES_DISCOVERY");
+        System.out.println("Value of USE_KUBERNETES_DISCOVERY: " + useKubernetesDiscovery);
+
+        if ("true".equalsIgnoreCase(useKubernetesDiscovery)) {
+            System.out.println("Using Kubernetes discovery for ribbon...");
+            loadBalancer = LoadBalancerBuilder.newBuilder()
+                    .withDynamicServerList(new KubernetesServerList(config))
+                    .buildDynamicServerListLoadBalancer();
+        }
+    }
+
+    @Path("/books4/{bookId}")
+    @GET
+    public String greeting(@PathParam("bookId") Long bookId) {
+        if (loadBalancer == null) {
+            System.out.println("Using a static list for ribbon");
+            Server server = new Server(backendServiceHost, backendServicePort);
+            loadBalancer = LoadBalancerBuilder.newBuilder()
+                    .buildFixedServerListLoadBalancer(Arrays.asList(server));
+        }
+
+        Book book = LoadBalancerCommand.<Book>builder()
+                .withLoadBalancer(loadBalancer)
+                .build()
+                .submit(server -> {
+                    String backendServiceUrl = String.format("http://%s:%d", server.getHost(),
+                            server.getPort());
+                    System.out.println("Sending to: " + backendServiceUrl);
+
+                    Client client = ClientBuilder.newClient();
+                    return Observable.just(client.target(backendServiceUrl)
+                            .path("hola-backend")
+                            .path("rest")
+                            .path("books")
+                            .path(bookId.toString())
+                            .request(MediaType.APPLICATION_JSON_TYPE).get(Book.class));
+                }).toBlocking().first();
+        return book.toString();
+    }
+}
+```
+
+&nbsp;&nbsp;&nbsp;&nbsp;可以看到我们首先使用`KubernetesServerList`构建了`ILoadBalancer`，然后在接下来的调用过程中使用`com.netflix.loadbalancer.reactive.LoadBalancerCommand`，通过负载均衡来进行调用地址的选择。
+
+> 镜像重新构建为`hola-wildflyswarm:1.3`，使用`rc4.yml`和`svc4.yml`进行重新部署

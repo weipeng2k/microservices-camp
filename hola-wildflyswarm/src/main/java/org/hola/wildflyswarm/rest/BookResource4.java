@@ -6,6 +6,7 @@ import com.netflix.loadbalancer.ILoadBalancer;
 import com.netflix.loadbalancer.LoadBalancerBuilder;
 import com.netflix.loadbalancer.Server;
 import com.netflix.loadbalancer.reactive.LoadBalancerCommand;
+import io.fabric8.kubeflix.ribbon.KubernetesClientConfig;
 import io.fabric8.kubeflix.ribbon.KubernetesServerList;
 import org.apache.deltaspike.core.api.config.ConfigProperty;
 import rx.Observable;
@@ -40,7 +41,7 @@ public class BookResource4 {
     private IClientConfig config;
 
     public BookResource4() {
-        this.config = new DefaultClientConfigImpl();
+        this.config = new KubernetesClientConfig();
         this.config.loadProperties("hola-backend");
 
         this.useKubernetesDiscovery = System.getenv("USE_KUBERNETES_DISCOVERY");
@@ -78,7 +79,7 @@ public class BookResource4 {
                             .path("rest")
                             .path("books")
                             .path(bookId.toString())
-                            .request(MediaType.APPLICATION_JSON_TYPE).get(Book.class));
+                            .request().get(Book.class));
                 }).toBlocking().first();
         return book.toString();
     }
