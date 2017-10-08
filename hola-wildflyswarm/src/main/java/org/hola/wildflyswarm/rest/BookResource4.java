@@ -1,6 +1,5 @@
 package org.hola.wildflyswarm.rest;
 
-import com.netflix.client.config.DefaultClientConfigImpl;
 import com.netflix.client.config.IClientConfig;
 import com.netflix.loadbalancer.ILoadBalancer;
 import com.netflix.loadbalancer.LoadBalancerBuilder;
@@ -18,7 +17,6 @@ import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
-import javax.ws.rs.core.MediaType;
 
 /**
  * @author weipeng2k
@@ -79,7 +77,10 @@ public class BookResource4 {
                             .path("rest")
                             .path("books")
                             .path(bookId.toString())
-                            .request().get(Book.class));
+                            .request()
+                            .accept("application/json")
+                            .get(Book.class)
+                    );
                 }).toBlocking().first();
         return book.toString();
     }
