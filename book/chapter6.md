@@ -850,8 +850,93 @@ Book{id=1, name='Java编程的艺术', version=0, authorName='魏鹏', publishDa
 
 ## 隔水舱（Bulkhead）
 
-`Hystrix`提供了许多开箱即可用的功能
+我们看到`Hystrix`提供了许多开箱即可用的功能，服务的一两次失败并不会由于服务的延迟导致断路器的开启。而这种情况就是分布式环境下最糟糕的，它很容易导致所有的工作线程瞬间都被卡主，从而导致级联错误，由此导致服务不可用。我们希望能够减轻由依赖服务的延迟导致所有资源不可用的困境，为了达到目的，我们引入了一项技术，叫做隔水舱 -- Bulkhead。隔水舱是将资源切分成不同的部分，一个部分耗尽，不会影响到其他，你可以从飞机或者船只的设计中看到这个模式，当出现撞击或意外时，只有会部分受损，而不是全部。
 
+`Hystrix`通过线程池技术来实现Bulkhead模式，每一个下游依赖都会被分配一个线程池，在这个线程池中会和外部系统通信。Netflix针对这些线程池进行了调优以确保它们的上下文切换对用户的影响降到最低，但是如果你非常关注这个点，也可以做一些测试或者调优。如果一个下游依赖延迟变高，为这个下游依赖分配的线程池将会耗尽，进而导致对这个依赖发起的新请求被拒绝，这时就可以采用服务降级策略而不用等着错误的级联。
+
+如果不想使用线程池来完成Bulkhead模式，`Hystrix`也支持调用线程上的semaphores来实现这个模式，可以访问[Hystrix Documentation](https://github.com/Netflix/Hystrix/wiki)来获得更多信息。
+
+`Hystrix`的默认实现是为下游依赖分配了一个核心线程数为10的线程池，该线程池不是采用阻塞队列作为任务的传递装置，而是使用了一个`SynchronousQueue`。如果你需要调整它，可以通过线程池配置加以调整，下面我们看一个例子：
+
+```java
+public class BookCommandBuckhead extends HystrixCommand<Book> {
+
+    private final String host;
+    private final int port;
+    private final Long bookId;
+
+    public BookCommandBuckhead(String host, int port, Long bookId) {
+        super(Setter.withGroupKey(
+                HystrixCommandGroupKey.Factory
+                        .asKey("wildflyswarm.backend.buckhead"))
+                .andThreadPoolPropertiesDefaults(HystrixThreadPoolProperties.Setter()
+                        .withMaxQueueSize(-1)
+                        .withCoreSize(5)
+                )
+                .andCommandPropertiesDefaults(HystrixCommandProperties.Setter()
+                        .withCircuitBreakerEnabled(true)
+                        .withCircuitBreakerRequestVolumeThreshold(5)
+                        .withMetricsRollingStatisticalWindowInMilliseconds(5000)
+                ));
+
+        this.host = host;
+        this.port = port;
+        this.bookId = bookId;
+    }
+
+    @Override
+    protected Book run() throws Exception {
+        String backendServiceUrl = String.format("http://%s:%d",
+                host, port);
+        System.out.println("Sending to: " + backendServiceUrl);
+        Client client = ClientBuilder.newClient();
+        Book book = client.target(backendServiceUrl).path("hola-backend").path("rest").path("books").path(
+                bookId.toString()).request().accept("application/json").get(Book.class);
+        Random random = new Random();
+        int i = random.nextInt(1000) + 1;
+        Thread.sleep(i);
+
+        return book;
+    }
+
+    @Override
+    protected Book getFallback() {
+        Book book = new Book();
+        book.setAuthorName("老中医");
+        book.setId(999L);
+        book.setPublishDate(new Date());
+        book.setVersion(1);
+        book.setName("颈椎病康复指南");
+
+        return book;
+    }
+}
+```
+
+&nbsp;&nbsp;&nbsp;&nbsp;上面例子中，将线程池的核心线程数设置为5个，也就是同一时刻，只能接受5个并发请求，在`run()`方法中，可以看到我们选择随机的睡眠一段时间，同时创建第三个rest接口：
+
+```java
+@Path("/api")
+public class BookResource3 {
+
+    @Inject
+    @ConfigProperty(name = "GREETING_BACKEND_SERVICE_HOST",
+            defaultValue = "localhost")
+    private String backendServiceHost;
+    @Inject
+    @ConfigProperty(name = "GREETING_BACKEND_SERVICE_PORT",
+            defaultValue = "8080")
+    private int backendServicePort;
+
+    @Path("/books3/{bookId}")
+    @GET
+    public String greeting(@PathParam("bookId") Long bookId) {
+        return new BookCommandBuckhead(backendServiceHost, backendServicePort, bookId).execute().toString();
+    }
+}
+```
+
+原有的`hola-wildflyswarm`服务不支持Bulkhead，我们将其停止，可以通过`kubectl delete all -l project=hola-wildflyswarm`，然后使用`svc3.yml`和`rc3.yml`创建新的`hola-wildflyswarm`。我们使用`quick`脚本，快速的发起调用，如果超过5个线程同时访问`hola-backend`，将会触发fallback。
 
 ```sh
 #!/bin/sh
@@ -861,6 +946,8 @@ for i in $(seq 20); do
   echo ""
 done;
 ```
+
+运行上面的脚本，观察输出，可以看到在正常的返回中出现了fallback数据，也就是下游依赖资源耗尽时，不会拖住当前服务的线程，不会造成级联错误。
 
 ```sh
 $ ./quick.sh
@@ -874,7 +961,76 @@ Book{id=1, name='Java编程的艺术', version=0, authorName='魏鹏', publishDa
 Book{id=1, name='Java编程的艺术', version=0, authorName='魏鹏', publishDate=Wed Jul 01 00:00:00 UTC 2015}
 Book{id=999, name='颈椎病康复指南', version=1, authorName='老中医', publishDate=Tue Sep 26 14:34:44 UTC 2017}
 Book{id=1, name='Java编程的艺术', version=0, authorName='魏鹏', publishDate=Wed Jul 01 00:00:00 UTC 2015}
-Book{id=1, name='Java编程的艺术', version=0, authorName='魏鹏', publishDate=Wed Jul 01 00:00:00 UTC 2015}
-Book{id=1, name='Java编程的艺术', version=0, authorName='魏鹏', publishDate=Wed Jul 01 00:00:00 UTC 2015}
-Book{id=1, name='Java编程的艺术', version=0, authorName='魏鹏', publishDate=Wed Jul 01 00:00:00 UTC 2015}
 ```
+
+## 负载均衡
+
+&nbsp;&nbsp;&nbsp;&nbsp;在一个具备高度伸缩能力的分布式系统中，我们需要一个方式能否发现服务并在服务集群上做到负载均衡。就像我们之前看到的例子，微服务应用必须能够处理失败，我们依赖的服务实例时刻都在加入或者离开集群，因此我们需要通过负载均衡来应对可能的调用失败。不太成熟的途径做到负载均衡的方式是使用round-robin域名解析，但是这个往往不足以应对负载均衡的场景，因此我们也需要会话粘连，自动伸缩等负载的负载均衡策略。让我们看一下在微服务环境下做负载均衡与传统的方式有何不同吧。
+
+### Kubernetes的负载均衡
+
+&nbsp;&nbsp;&nbsp;&nbsp;Kubernetes最好的一点就是提供了许多开箱即用的分布式特性，而不需要添加额外的服务端组件或者客户端依赖。Kubernetes服务提供了微服务的发现机制的同时也提供了服务端的负载均衡功能，事实上，一个Kubernetes服务就是一组Pod的抽象层，它们（Pods）是依靠label selector选择出来的，而针对选出来的这些Pods，Kubernetes将会把请求按照一定策略发送给它们，默认的策略是round-robin，但是可以改变这个策略，比如会话粘连。需要注意的是，客户端不需要将Pod主动添加到Service，而是让Service通过label selector来选择Pods。客户端使用CLUSTER-IP或者Kubernetes提供的DNS来访问服务，而这个DNS并非传统的DNS，在传统的DNS实现中，TTL问题是DNS作为负载均衡的难题，但是在Kubernetes中却不存在这个问题，同时Kubernetes也不依赖硬件做到负载均衡，这些功能完全是内置的。
+
+&nbsp;&nbsp;&nbsp;&nbsp;为了演示Kubernetes的负载均衡，我们尝试将`hola-backend`扩容到2个，然后循环请求前端的`hola-wildflyswarm`接口，观察返回的结果。
+
+> 由于`hola-backend`实例使用的是内存数据库，我们将2个实例中的数据初始化成不一样的，这样就可以通过返回的数据来推测出请求到了哪个实例
+
+&nbsp;&nbsp;&nbsp;&nbsp;首先我们进行扩容`hola-backend`。
+
+```sh
+$ kubectl scale rc hola-backend --replicas=2
+replicationcontroller "hola-backend" scaled
+$ kubectl get pods
+NAME                      READY     STATUS    RESTARTS   AGE
+hola-backend-crrt8        0/1       Running   0          7s
+hola-backend-n3sg5        1/1       Running   2          13d
+hola-wildflyswarm-bk18g   1/1       Running   1          11d
+```
+
+&nbsp;&nbsp;&nbsp;&nbsp;扩容完成后，我们在将Pod端口进行映射，因为需要数据初始化操作。
+
+```sh
+$ kubectl port-forward hola-backend-n3sg5 9001:8080 > backend1.log &
+[1] 3471
+$ kubectl port-forward hola-backend-crrt8 9002:8080 > backend2.log &
+[2] 3487
+$ kubectl port-forward hola-wildflyswarm-bk18g 9000:8080 > wildfly.log &
+[3] 3514
+```
+
+&nbsp;&nbsp;&nbsp;&nbsp;对`hola-backend`实例分别进行数据初始化。
+
+```sh
+$ curl -H "Content-Type: application/json" -X POST -d '{"name":"Java编程的艺术","authorName":"魏鹏","publishDate":"2015-07-01"}' http://localhost:9001/hola-backend/rest/books/
+$ curl -H "Content-Type: application/json" -X POST -d '{"name":"颈椎病康复指南","authorName":"老中医","publishDate":"2015-07-01"}' http://localhost:9002/hola-backend/rest/books/
+```
+
+&nbsp;&nbsp;&nbsp;&nbsp;由于`hola-wildflyswarm`实例由DNS负载均衡来请求到后端，我们运行脚本`loadbalance.sh`。
+
+```sh
+#!/bin/sh
+for i in $(seq 10); do
+  curl http://localhost:9000/api/books/1
+  echo ""
+  sleep 1
+done;
+```
+
+&nbsp;&nbsp;&nbsp;&nbsp;以下是输出，读者运行时可能与此有所不同，但是理论上出现不同的输出。
+
+```sh
+Book{id=1, name='颈椎病康复指南', version=0, authorName='老中医', publishDate=Wed Jul 01 00:00:00 UTC 2015}
+Book{id=1, name='颈椎病康复指南', version=0, authorName='老中医', publishDate=Wed Jul 01 00:00:00 UTC 2015}
+Book{id=1, name='Java编程的艺术', version=0, authorName='魏鹏', publishDate=Wed Jul 01 00:00:00 UTC 2015}
+Book{id=1, name='Java编程的艺术', version=0, authorName='魏鹏', publishDate=Wed Jul 01 00:00:00 UTC 2015}
+Book{id=1, name='颈椎病康复指南', version=0, authorName='老中医', publishDate=Wed Jul 01 00:00:00 UTC 2015}
+Book{id=1, name='Java编程的艺术', version=0, authorName='魏鹏', publishDate=Wed Jul 01 00:00:00 UTC 2015}
+Book{id=1, name='Java编程的艺术', version=0, authorName='魏鹏', publishDate=Wed Jul 01 00:00:00 UTC 2015}
+Book{id=1, name='颈椎病康复指南', version=0, authorName='老中医', publishDate=Wed Jul 01 00:00:00 UTC 2015}
+Book{id=1, name='颈椎病康复指南', version=0, authorName='老中医', publishDate=Wed Jul 01 00:00:00 UTC 2015}
+Book{id=1, name='颈椎病康复指南', version=0, authorName='老中医', publishDate=Wed Jul 01 00:00:00 UTC 2015}
+```
+
+## 我们需要客户端负载均衡吗？
+
+&nbsp;&nbsp;&nbsp;&nbsp;

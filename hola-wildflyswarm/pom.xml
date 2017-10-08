@@ -107,6 +107,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <version.wildfly-swarm>2017.6.1</version.wildfly-swarm>
         <hystrix.version>1.5.12</hystrix.version>
+        <kubeflix.version>1.0.15</kubeflix.version>
     </properties>
     <profiles>
         <profile>
@@ -174,6 +175,15 @@
             <groupId>com.netflix.hystrix</groupId>
             <artifactId>hystrix-core</artifactId>
             <version>${hystrix.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.wildfly.swarm</groupId>
+            <artifactId>ribbon</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.fabric8.kubeflix</groupId>
+            <artifactId>ribbon-discovery</artifactId>
+            <version>${kubeflix.version}</version>
         </dependency>
     </dependencies>
     <dependencyManagement>
