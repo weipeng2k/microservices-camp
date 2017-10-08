@@ -108,6 +108,7 @@
         <version.wildfly-swarm>2017.6.1</version.wildfly-swarm>
         <hystrix.version>1.5.12</hystrix.version>
         <kubeflix.version>1.0.15</kubeflix.version>
+        <fabric8.env.USE_KUBERNETES_DISCOVERY>true</fabric8.env.USE_KUBERNETES_DISCOVERY>
     </properties>
     <profiles>
         <profile>
